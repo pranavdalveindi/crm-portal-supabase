@@ -1,6 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { apiFetch } from "@/src/lib/api";
 
 interface AgentKPI {
@@ -16,8 +30,14 @@ interface AgentKPI {
   escalated: number;
 }
 
+interface DailyAgentCalls {
+  date: string;
+  agents: Record<string, number>;
+}
+
 interface KPIResponse {
   success: boolean;
+
   summary: {
     totalCalls: number;
     callsToday: number;
@@ -26,7 +46,15 @@ interface KPIResponse {
     callback: number;
     escalated: number;
   };
+
   agents: AgentKPI[];
+
+  dailyAgentCalls: DailyAgentCalls[];
+}
+
+interface ChartRow {
+  date: string;
+  [key: string]: string | number;
 }
 
 export default function KPIPage() {
@@ -64,6 +92,35 @@ export default function KPIPage() {
   useEffect(() => {
     loadKPI();
   }, []);
+
+  /*
+   * =========================================================
+   * PREPARE GRAPH DATA
+   * =========================================================
+   */
+
+  const chartData = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+
+    return data.dailyAgentCalls.map(
+      (day) => {
+        const row: ChartRow = {
+          date: formatGraphDate(
+            day.date
+          ),
+        };
+
+        for (const agent of data.agents) {
+          row[agent.id] =
+            day.agents[agent.id] ?? 0;
+        }
+
+        return row;
+      }
+    );
+  }, [data]);
 
   if (loading) {
     return (
@@ -103,7 +160,10 @@ export default function KPIPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* ===================================================== */}
+      {/* HEADER */}
+      {/* ===================================================== */}
+
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-medium uppercase tracking-wider text-slate-400">
@@ -129,40 +189,158 @@ export default function KPIPage() {
         </button>
       </div>
 
-      {/* Summary */}
+      {/* ===================================================== */}
+      {/* SUMMARY */}
+      {/* ===================================================== */}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <KPIStat
           label="Total Calls"
-          value={data.summary.totalCalls}
+          value={
+            data.summary.totalCalls
+          }
         />
 
         <KPIStat
           label="Today"
-          value={data.summary.callsToday}
+          value={
+            data.summary.callsToday
+          }
         />
 
         <KPIStat
           label="Connected"
-          value={data.summary.connected}
+          value={
+            data.summary.connected
+          }
         />
 
         <KPIStat
           label="No Answer"
-          value={data.summary.noAnswer}
+          value={
+            data.summary.noAnswer
+          }
         />
 
         <KPIStat
           label="Callback"
-          value={data.summary.callback}
+          value={
+            data.summary.callback
+          }
         />
 
         <KPIStat
           label="Escalated"
-          value={data.summary.escalated}
+          value={
+            data.summary.escalated
+          }
         />
       </div>
 
-      {/* Agent performance */}
+      {/* ===================================================== */}
+      {/* DAILY CALL GRAPH */}
+      {/* ===================================================== */}
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-6 py-5">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Daily Call Activity
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Number of calls made by each call agent over
+            the last 30 days.
+          </p>
+        </div>
+
+        <div className="p-6">
+          {chartData.length === 0 ||
+          data.agents.length === 0 ? (
+            <div className="flex h-[350px] items-center justify-center">
+              <p className="text-sm text-slate-500">
+                No call activity available.
+              </p>
+            </div>
+          ) : (
+            <div className="h-[380px] w-full">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+              >
+                <LineChart
+                  data={chartData}
+                  margin={{
+                    top: 10,
+                    right: 20,
+                    left: 0,
+                    bottom: 10,
+                  }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                  />
+
+                  <XAxis
+                    dataKey="date"
+                    tick={{
+                      fontSize: 12,
+                    }}
+                    tickMargin={10}
+                  />
+
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{
+                      fontSize: 12,
+                    }}
+                    width={40}
+                  />
+
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 10,
+                      border:
+                        "1px solid #e2e8f0",
+                      boxShadow:
+                        "0 4px 12px rgba(0,0,0,0.08)",
+                    }}
+                    labelStyle={{
+                      fontWeight: 600,
+                      marginBottom: 6,
+                    }}
+                  />
+
+                  <Legend />
+
+                  {data.agents.map(
+                    (agent) => (
+                      <Line
+                        key={agent.id}
+                        type="monotone"
+                        dataKey={agent.id}
+                        name={agent.name}
+                        strokeWidth={2}
+                        dot={{
+                          r: 3,
+                        }}
+                        activeDot={{
+                          r: 6,
+                        }}
+                      />
+                    )
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ===================================================== */}
+      {/* AGENT PERFORMANCE */}
+      {/* ===================================================== */}
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="border-b border-slate-200 px-6 py-5">
           <h2 className="text-lg font-semibold text-slate-900">
@@ -213,66 +391,68 @@ export default function KPIPage() {
             </thead>
 
             <tbody>
-              {data.agents.map((agent) => (
-                <tr
-                  key={agent.id}
-                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-                >
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="font-medium text-slate-900">
-                        {agent.name}
-                      </p>
+              {data.agents.map(
+                (agent) => (
+                  <tr
+                    key={agent.id}
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                  >
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-medium text-slate-900">
+                          {agent.name}
+                        </p>
 
-                      <p className="text-xs text-slate-500">
-                        {agent.email}
-                      </p>
-                    </div>
-                  </td>
+                        <p className="text-xs text-slate-500">
+                          {agent.email}
+                        </p>
+                      </div>
+                    </td>
 
-                  <td className="px-4 py-4 text-center">
-                    <span className="font-semibold text-slate-900">
-                      {agent.callsToday}
-                    </span>
-                  </td>
+                    <td className="px-4 py-4 text-center">
+                      <span className="font-semibold text-slate-900">
+                        {agent.callsToday}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-4 text-center">
-                    <span className="font-semibold text-slate-900">
-                      {agent.totalCalls}
-                    </span>
-                  </td>
+                    <td className="px-4 py-4 text-center">
+                      <span className="font-semibold text-slate-900">
+                        {agent.totalCalls}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-4 text-center text-sm text-slate-600">
-                    {agent.connected}
-                  </td>
+                    <td className="px-4 py-4 text-center text-sm text-slate-600">
+                      {agent.connected}
+                    </td>
 
-                  <td className="px-4 py-4 text-center text-sm text-slate-600">
-                    {agent.noAnswer}
-                  </td>
+                    <td className="px-4 py-4 text-center text-sm text-slate-600">
+                      {agent.noAnswer}
+                    </td>
 
-                  <td className="px-4 py-4 text-center text-sm text-slate-600">
-                    {agent.callback}
-                  </td>
+                    <td className="px-4 py-4 text-center text-sm text-slate-600">
+                      {agent.callback}
+                    </td>
 
-                  <td className="px-4 py-4 text-center text-sm text-slate-600">
-                    {agent.escalated}
-                  </td>
+                    <td className="px-4 py-4 text-center text-sm text-slate-600">
+                      {agent.escalated}
+                    </td>
 
-                  <td className="px-6 py-4 text-center">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                        agent.isActive
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {agent.isActive
-                        ? "Active"
-                        : "Inactive"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-6 py-4 text-center">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          agent.isActive
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {agent.isActive
+                          ? "Active"
+                          : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              )}
             </tbody>
           </table>
         </div>
@@ -288,6 +468,34 @@ export default function KPIPage() {
     </div>
   );
 }
+
+/*
+ * =========================================================
+ * FORMAT GRAPH DATE
+ * =========================================================
+ */
+
+function formatGraphDate(
+  dateString: string
+) {
+  const date = new Date(
+    `${dateString}T00:00:00+05:30`
+  );
+
+  return new Intl.DateTimeFormat(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+    }
+  ).format(date);
+}
+
+/*
+ * =========================================================
+ * KPI STAT
+ * =========================================================
+ */
 
 function KPIStat({
   label,
@@ -308,3 +516,4 @@ function KPIStat({
     </div>
   );
 }
+
