@@ -30,16 +30,41 @@ interface DistributeResponse {
   agents: number;
 }
 
+interface CallListStats {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+}
+
+interface CallListStatsResponse {
+  success: boolean;
+  stats: CallListStats;
+}
+
 export default function CallListPage() {
   const { user, loading: authLoading } = useAuth();
 
-  const [callList, setCallList] = useState<CallListEntry[]>([]);
+  const [callList, setCallList] =
+    useState<CallListEntry[]>([]);
+
+  const [stats, setStats] =
+    useState<CallListStats>({
+      total: 0,
+      pending: 0,
+      inProgress: 0,
+      completed: 0,
+    });
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-  const [generating, setGenerating] = useState(false);
-  const [distributing, setDistributing] = useState(false);
+  const [generating, setGenerating] =
+    useState(false);
+
+  const [distributing, setDistributing] =
+    useState(false);
 
   const [search, setSearch] = useState("");
 
@@ -49,15 +74,24 @@ export default function CallListPage() {
   const [priorityFilter, setPriorityFilter] =
     useState<Priority | "ALL">("ALL");
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] =
+    useState(1);
 
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [message, setMessage] =
+    useState<string | null>(null);
 
   /*
-   * Load call list
+   * =========================================================
+   * LOAD CALL LIST
+   * =========================================================
    */
-  async function loadCallList(showRefreshState = false) {
+
+  async function loadCallList(
+    showRefreshState = false
+  ) {
     try {
       setError(null);
 
@@ -67,9 +101,10 @@ export default function CallListPage() {
         setLoading(true);
       }
 
-      const response = await apiFetch<CallListResponse>(
-        "/api/crm/call-list"
-      );
+      const response =
+        await apiFetch<CallListResponse>(
+          "/api/crm/call-list"
+        );
 
       setCallList(response.callList ?? []);
     } catch (err) {
@@ -85,17 +120,53 @@ export default function CallListPage() {
   }
 
   /*
-   * Initial load
+   * =========================================================
+   * LOAD STATISTICS
+   * =========================================================
    */
+
+  async function loadStats() {
+    try {
+      const response =
+        await apiFetch<CallListStatsResponse>(
+          "/api/crm/call-list/stats"
+        );
+
+      setStats(
+        response.stats ?? {
+          total: 0,
+          pending: 0,
+          inProgress: 0,
+          completed: 0,
+        }
+      );
+    } catch (err) {
+      console.error(
+        "Failed to load call list statistics:",
+        err
+      );
+    }
+  }
+
+  /*
+   * =========================================================
+   * INITIAL LOAD
+   * =========================================================
+   */
+
   useEffect(() => {
     if (!authLoading && user) {
       loadCallList();
+      loadStats();
     }
   }, [authLoading, user]);
 
   /*
-   * Generate call list
+   * =========================================================
+   * GENERATE CALL LIST
+   * =========================================================
    */
+
   async function handleGenerate() {
     try {
       setGenerating(true);
@@ -116,7 +187,10 @@ export default function CallListPage() {
 
       setCurrentPage(1);
 
-      await loadCallList();
+      await Promise.all([
+        loadCallList(),
+        loadStats(),
+      ]);
     } catch (err) {
       setError(
         err instanceof Error
@@ -129,8 +203,11 @@ export default function CallListPage() {
   }
 
   /*
-   * Distribute call list
+   * =========================================================
+   * DISTRIBUTE CALL LIST
+   * =========================================================
    */
+
   async function handleDistribute() {
     try {
       setDistributing(true);
@@ -151,7 +228,10 @@ export default function CallListPage() {
 
       setCurrentPage(1);
 
-      await loadCallList();
+      await Promise.all([
+        loadCallList(),
+        loadStats(),
+      ]);
     } catch (err) {
       setError(
         err instanceof Error
@@ -164,10 +244,14 @@ export default function CallListPage() {
   }
 
   /*
-   * Filter call list
+   * =========================================================
+   * FILTER CALL LIST
+   * =========================================================
    */
+
   const filteredCallList = useMemo(() => {
-    const searchValue = search.trim().toLowerCase();
+    const searchValue =
+      search.trim().toLowerCase();
 
     return callList.filter((entry) => {
       const matchesSearch =
@@ -207,44 +291,30 @@ export default function CallListPage() {
   ]);
 
   /*
-   * Reset to first page whenever filters change
+   * =========================================================
+   * RESET PAGE WHEN FILTERS CHANGE
+   * =========================================================
    */
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, priorityFilter]);
+  }, [
+    search,
+    statusFilter,
+    priorityFilter,
+  ]);
 
   /*
-   * Statistics
+   * =========================================================
+   * PAGINATION
+   * =========================================================
    */
-  const stats = useMemo(() => {
-    return {
-      total: callList.length,
 
-      pending: callList.filter(
-        (item) => item.status === "PENDING"
-      ).length,
-
-      inProgress: callList.filter(
-        (item) => item.status === "IN_PROGRESS"
-      ).length,
-
-      completed: callList.filter(
-        (item) => item.status === "COMPLETED"
-      ).length,
-    };
-  }, [callList]);
-
-  /*
-   * Pagination
-   */
   const totalPages = Math.ceil(
-    filteredCallList.length / ITEMS_PER_PAGE
+    filteredCallList.length /
+      ITEMS_PER_PAGE
   );
 
-  /*
-   * Protect current page if filtering reduces the number
-   * of available pages.
-   */
   useEffect(() => {
     if (
       totalPages > 0 &&
@@ -255,21 +325,31 @@ export default function CallListPage() {
   }, [currentPage, totalPages]);
 
   /*
-   * Current page data
+   * =========================================================
+   * CURRENT PAGE DATA
+   * =========================================================
    */
+
   const paginatedCallList = useMemo(() => {
     const startIndex =
-      (currentPage - 1) * ITEMS_PER_PAGE;
+      (currentPage - 1) *
+      ITEMS_PER_PAGE;
 
     return filteredCallList.slice(
       startIndex,
       startIndex + ITEMS_PER_PAGE
     );
-  }, [filteredCallList, currentPage]);
+  }, [
+    filteredCallList,
+    currentPage,
+  ]);
 
   /*
-   * Loading state
+   * =========================================================
+   * LOADING STATE
+   * =========================================================
    */
+
   if (authLoading || loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -311,11 +391,18 @@ export default function CallListPage() {
 
           <button
             type="button"
-            onClick={() => loadCallList(true)}
+            onClick={async () => {
+              await Promise.all([
+                loadCallList(true),
+                loadStats(),
+              ]);
+            }}
             disabled={refreshing}
             className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {refreshing ? "Refreshing..." : "Refresh"}
+            {refreshing
+              ? "Refreshing..."
+              : "Refresh"}
           </button>
 
           {/* Generate */}
@@ -395,7 +482,7 @@ export default function CallListPage() {
         <StatCard
           label="Total Calls"
           value={stats.total}
-          description="Today's call queue"
+          description="All calls"
         />
 
         <StatCard
@@ -573,9 +660,12 @@ export default function CallListPage() {
               <HouseholdCard
                 key={entry.id}
                 entry={entry}
-                onUpdated={() =>
-                  loadCallList(true)
-                }
+                onUpdated={async () => {
+                  await Promise.all([
+                    loadCallList(true),
+                    loadStats(),
+                  ]);
+                }}
               />
             ))}
           </div>
@@ -651,22 +741,15 @@ function Pagination({
   onPageChange: (page: number) => void;
 }) {
   const startItem =
-    (currentPage - 1) * itemsPerPage + 1;
+    (currentPage - 1) *
+      itemsPerPage +
+    1;
 
   const endItem = Math.min(
     currentPage * itemsPerPage,
     totalItems
   );
 
-  /*
-   * Create compact page numbers.
-   *
-   * Example:
-   *
-   * 1 2 3 ... 14 15
-   *
-   * rather than showing 1-15 when there are many pages.
-   */
   const pages = getPageNumbers(
     currentPage,
     totalPages
@@ -674,8 +757,6 @@ function Pagination({
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-      {/* Result count */}
-
       <p className="text-sm text-slate-500">
         Showing{" "}
         <span className="font-medium text-slate-700">
@@ -691,11 +772,7 @@ function Pagination({
         </span>
       </p>
 
-      {/* Controls */}
-
       <div className="flex items-center gap-1">
-        {/* Previous */}
-
         <button
           type="button"
           disabled={currentPage === 1}
@@ -706,8 +783,6 @@ function Pagination({
         >
           Previous
         </button>
-
-        {/* Pages */}
 
         {pages.map((page, index) => {
           if (page === "...") {
@@ -739,8 +814,6 @@ function Pagination({
           );
         })}
 
-        {/* Next */}
-
         <button
           type="button"
           disabled={
@@ -768,23 +841,12 @@ function getPageNumbers(
   currentPage: number,
   totalPages: number
 ): (number | "...")[] {
-  /*
-   * If there are only a few pages,
-   * show all of them.
-   */
-
   if (totalPages <= 7) {
     return Array.from(
       { length: totalPages },
       (_, index) => index + 1
     );
   }
-
-  /*
-   * Near the beginning
-   *
-   * 1 2 3 4 5 ... 15
-   */
 
   if (currentPage <= 4) {
     return [
@@ -798,12 +860,6 @@ function getPageNumbers(
     ];
   }
 
-  /*
-   * Near the end
-   *
-   * 1 ... 11 12 13 14 15
-   */
-
   if (currentPage >= totalPages - 3) {
     return [
       1,
@@ -816,12 +872,6 @@ function getPageNumbers(
     ];
   }
 
-  /*
-   * Middle
-   *
-   * 1 ... 6 7 8 ... 15
-   */
-
   return [
     1,
     "...",
@@ -832,4 +882,3 @@ function getPageNumbers(
     totalPages,
   ];
 }
-

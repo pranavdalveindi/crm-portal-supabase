@@ -78,9 +78,11 @@ export default function DashboardLayout({
             href="/call-list"
             className="flex items-center gap-3"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-bold text-white">
-              I
-            </div>
+            <img
+              src="/indi-logo.png"
+              alt="Inditronics"
+              className="h-9 w-9 object-contain"
+            />
 
             <div>
               <p className="text-sm font-semibold text-slate-900">
@@ -191,9 +193,11 @@ export default function DashboardLayout({
           href="/call-list"
           className="flex items-center gap-3"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-bold text-white">
-            I
-          </div>
+          <img
+            src="/indi-logo.png"
+            alt="Inditronics"
+            className="h-9 w-9 object-contain"
+          />
 
           <div>
             <p className="text-sm font-semibold text-slate-900">
