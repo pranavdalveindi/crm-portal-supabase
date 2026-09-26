@@ -18,18 +18,6 @@ interface CallListResponse {
   callList: CallListEntry[];
 }
 
-interface GenerateResponse {
-  success: boolean;
-  count: number;
-  callList: CallListEntry[];
-}
-
-interface DistributeResponse {
-  success: boolean;
-  assigned: number;
-  agents: number;
-}
-
 interface CallListStats {
   total: number;
   pending: number;
@@ -57,13 +45,8 @@ export default function CallListPage() {
     });
 
   const [loading, setLoading] = useState(true);
+
   const [refreshing, setRefreshing] =
-    useState(false);
-
-  const [generating, setGenerating] =
-    useState(false);
-
-  const [distributing, setDistributing] =
     useState(false);
 
   const [search, setSearch] = useState("");
@@ -160,88 +143,6 @@ export default function CallListPage() {
       loadStats();
     }
   }, [authLoading, user]);
-
-  /*
-   * =========================================================
-   * GENERATE CALL LIST
-   * =========================================================
-   */
-
-  async function handleGenerate() {
-    try {
-      setGenerating(true);
-      setError(null);
-      setMessage(null);
-
-      const response =
-        await apiFetch<GenerateResponse>(
-          "/api/crm/call-list/generate",
-          {
-            method: "POST",
-          }
-        );
-
-      setMessage(
-        `Call list generated successfully. ${response.count} call(s) found.`
-      );
-
-      setCurrentPage(1);
-
-      await Promise.all([
-        loadCallList(),
-        loadStats(),
-      ]);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to generate call list"
-      );
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  /*
-   * =========================================================
-   * DISTRIBUTE CALL LIST
-   * =========================================================
-   */
-
-  async function handleDistribute() {
-    try {
-      setDistributing(true);
-      setError(null);
-      setMessage(null);
-
-      const response =
-        await apiFetch<DistributeResponse>(
-          "/api/crm/call-list/distribute",
-          {
-            method: "POST",
-          }
-        );
-
-      setMessage(
-        `${response.assigned} call(s) distributed among ${response.agents} agent(s).`
-      );
-
-      setCurrentPage(1);
-
-      await Promise.all([
-        loadCallList(),
-        loadStats(),
-      ]);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to distribute call list"
-      );
-    } finally {
-      setDistributing(false);
-    }
-  }
 
   /*
    * =========================================================
@@ -404,37 +305,6 @@ export default function CallListPage() {
               ? "Refreshing..."
               : "Refresh"}
           </button>
-
-          {/* Generate */}
-
-          {(user?.role === "developer" ||
-            user?.role === "panel_manager") && (
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={generating}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {generating
-                ? "Generating..."
-                : "Generate Call List"}
-            </button>
-          )}
-
-          {/* Distribute */}
-
-          {user?.role === "panel_manager" && (
-            <button
-              type="button"
-              onClick={handleDistribute}
-              disabled={distributing}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {distributing
-                ? "Distributing..."
-                : "Distribute"}
-            </button>
-          )}
         </div>
       </div>
 

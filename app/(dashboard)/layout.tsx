@@ -120,7 +120,7 @@ export default function DashboardLayout({
                 active={pathname.startsWith("/kpi")}
                 icon={<KPIIcon />}
                 >
-                KPIs
+                Performance
                 </SidebarLink>
             )}
 
